@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow Manager</title>
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: transparent;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+            width: 2rem;
+            height: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s;
+        }
+
+        .modal-close:hover {
+            background-color: #f3f4f6;
+        }
+
+        /* Task Entry Container */
+        .task-entry-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+
+        .task-entry-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        /* Header Buttons */
+        .header-buttons {
+            position: fixed;
+            top: 1.5rem;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header-btn {
+            background: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+            color: #667eea;
+        }
+
+        .header-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-btn svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        .header-left {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Task List Styles */
+        .task-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .task-item:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+        }
+
+        .task-item.priority {
+            background: #fef3c7;
+            border-color: #fbbf24;
+        }
+
+        .task-item.priority:hover {
+            background: #fde68a;
+        }
+
+        .task-text {
+            flex: 1;
+            color: #1f2937;
+            font-size: 0.95rem;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .priority-btn {
+            background: transparent;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+            color: #9ca3af;
+        }
+
+        .priority-btn.active {
+            color: #f59e0b;
+            background: #fef3c7;
+        }
+
+        .priority-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .priority-btn.active:hover {
+            background: #fde68a;
+        }
+
+        .priority-btn svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        .delete-btn {
+            background: #fee2e2;
+            color: #dc2626;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+
+        .delete-btn:hover {
+            background: #fecaca;
+        }
+
+        .delete-btn svg {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        /* Random Focus Styles */
+        .random-focus-content {
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+
+        .focus-task-display {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 2rem;
+            border-radius: 1rem;
+            margin: 2rem 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            line-height: 1.4;
+            min-height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Input Styles */
+        .input-field {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-priority-toggle {
+            background: white;
+            border: 2px solid #e5e7eb;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            color: #9ca3af;
+            min-width: 3.5rem;
+        }
+
+        .btn-priority-toggle:hover {
+            border-color: #fbbf24;
+            background: #fef3c7;
+        }
+
+        .btn-priority-toggle.active {
+            background: #fbbf24;
+            border-color: #f59e0b;
+            color: white;
+        }
+
+        .btn-priority-toggle svg {
+            width: 1.5rem;
+            height: 1.5rem;
+        }
+
+        .btn-primary {
+            flex: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #6b7280;
+        }
+
+        .empty-state svg {
+            width: 4rem;
+            height: 4rem;
+            margin: 0 auto 1rem;
+            color: #d1d5db;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .modal-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 1.5rem;
+            padding-right: 2rem;
+        }
+
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .success-message.show {
+            display: flex;
+        }
+
+        .task-count {
+            background: #ede9fe;
+            color: #7c3aed;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .header-buttons {
+                flex-direction: column;
+                gap: 0.5rem;
+                top: 1rem;
+            }
+
+            .header-left {
+                flex-direction: column;
+            }
+
+            .task-entry-container {
+                padding-top: 10rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .modal-content {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+  </head>
+<body>
+    <!-- Header Buttons -->
+    <div class="header-buttons">
+        <div class="header-left">
+            <button class="header-btn" id="viewAllBtn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                All Tasks
+            </button>
+            <button class="header-btn" id="viewPriorityBtn">
+                <svg fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+                Priority Tasks
+            </button>
+        </div>
+        <button class="header-btn" id="randomTaskBtn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Work on this!
+        </button>
+    </div>
+
+    <!-- Main Task Entry Screen -->
+    <div class="task-entry-container">
+        <h1>Project Manager</h1>
+        <p class="subtitle">Capture your tasks and stay focused</p>
+
+        <div class="task-entry-card">
+            <form id="taskForm">
+                <div style="margin-bottom: 1rem;">
+                    <label for="taskInput" style="display: block; margin-bottom: 0.5rem; color: #374151; font-weight: 600;">
+                        Add a Task or Project
+                    </label>
+                    <input 
+                        type="text" 
+                        id="taskInput" 
+                        class="input-field"
+                        placeholder="e.g., Complete quarterly report, Review design mockups..."
+                        required
+                    />
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn-priority-toggle" id="priorityToggle" title="Mark as priority">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 1.25rem; height: 1.25rem;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Add Task
+                    </button>
+                </div>
+            </form>
+
+            <div class="success-message" id="successMessage">
+                <svg fill="currentColor" viewBox="0 0 20 20" style="width: 1.25rem; height: 1.25rem;">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                Task saved successfully!
+            </div>
+
+            <div style="margin-top: 1.5rem; text-align: center; color: #6b7280;">
+                <span id="taskCounter">0</span> tasks saved
+            </div>
+        </div>
+    </div>
+
+    <!-- All Tasks Modal -->
+    <div class="modal-overlay" id="allTasksModal">
+        <div class="modal-content">
+            <button class="modal-close" id="closeAllTasksModal">&times;</button>
+            <h2 class="modal-title">All Tasks</h2>
+            
+            <div id="tasksListContainer">
+                <div class="empty-state" id="emptyState">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                    <h3 style="font-size: 1.25rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">No Tasks Yet</h3>
+                    <p>Start by adding your first task above</p>
+                </div>
+                <div id="tasksList" style="display: none;">
+                    <div style="margin-bottom: 1rem;">
+                        <span class="task-count">
+                            <span id="modalTaskCount">0</span> Tasks
+                        </span>
+                    </div>
+                    <div id="tasksContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Priority Tasks Modal -->
+    <div class="modal-overlay" id="priorityTasksModal">
+        <div class="modal-content">
+            <button class="modal-close" id="closePriorityTasksModal">&times;</button>
+            <h2 class="modal-title" style="display: flex; align-items: center; gap: 0.5rem;">
+                <svg fill="currentColor" viewBox="0 0 20 20" style="width: 1.75rem; height: 1.75rem; color: #f59e0b;">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+                Priority Tasks
+            </h2>
+            
+            <div id="priorityTasksListContainer">
+                <div class="empty-state" id="priorityEmptyState">
+                    <svg fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                    <h3 style="font-size: 1.25rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">No Priority Tasks</h3>
+                    <p>Mark tasks as priority using the star icon</p>
+                </div>
+                <div id="priorityTasksList" style="display: none;">
+                    <div style="margin-bottom: 1rem;">
+                        <span class="task-count" style="background: #fef3c7; color: #d97706;">
+                            <span id="priorityModalTaskCount">0</span> Priority Tasks
+                        </span>
+                    </div>
+                    <div id="priorityTasksContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Random Task Modal -->
+    <div class="modal-overlay" id="randomTaskModal">
+        <div class="modal-content">
+            <button class="modal-close" id="closeRandomTaskModal">&times;</button>
+            <div class="random-focus-content">
+                <h2 class="modal-title" style="text-align: center;">Your Focus Task</h2>
+                <p style="color: #6b7280; text-align: center; margin-bottom: 2rem;">
+                    Let randomness guide your productivity
+                </p>
+
+                <div id="randomTaskContent">
+                    <div class="empty-state" id="randomEmptyState">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                        <h3 style="font-size: 1.25rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">No Tasks Available</h3>
+                        <p>Add some tasks first to use random focus</p>
+                    </div>
+                    <div id="randomTaskDisplay" style="display: none;">
+                        <div class="focus-task-display" id="focusTaskText"></div>
+                        <button class="btn-secondary" id="shuffleBtn" style="display: block; margin: 0 auto;">
+                            Get Another Task
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/storage.js"></script>
+    <script>
+        // Task Management
+        let tasks = [];
+        let isPriorityMode = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTasks();
+            updateTaskCounter();
+            
+            // Event Listeners
+            document.getElementById('taskForm').addEventListener('submit', handleAddTask);
+            document.getElementById('priorityToggle').addEventListener('click', togglePriorityMode);
+            document.getElementById('viewAllBtn').addEventListener('click', openAllTasksModal);
+            document.getElementById('viewPriorityBtn').addEventListener('click', openPriorityTasksModal);
+            document.getElementById('randomTaskBtn').addEventListener('click', openRandomTaskModal);
+            document.getElementById('closeAllTasksModal').addEventListener('click', closeAllTasksModal);
+            document.getElementById('closePriorityTasksModal').addEventListener('click', closePriorityTasksModal);
+            document.getElementById('closeRandomTaskModal').addEventListener('click', closeRandomTaskModal);
+            document.getElementById('shuffleBtn').addEventListener('click', displayRandomTask);
+
+            // Close modals on overlay click
+            document.getElementById('allTasksModal').addEventListener('click', function(e) {
+                if (e.target === this) closeAllTasksModal();
+            });
+            document.getElementById('priorityTasksModal').addEventListener('click', function(e) {
+                if (e.target === this) closePriorityTasksModal();
+            });
+            document.getElementById('randomTaskModal').addEventListener('click', function(e) {
+                if (e.target === this) closeRandomTaskModal();
+            });
+        });
+
+        function loadTasks() {
+            const stored = localStorage.getItem('taskflow_tasks');
+            tasks = stored ? JSON.parse(stored) : [];
+        }
+
+        function saveTasks() {
+            localStorage.setItem('taskflow_tasks', JSON.stringify(tasks));
+        }
+
+        function togglePriorityMode() {
+            isPriorityMode = !isPriorityMode;
+            const btn = document.getElementById('priorityToggle');
+            if (isPriorityMode) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+
+        function handleAddTask(e) {
+            e.preventDefault();
+            const input = document.getElementById('taskInput');
+            const taskText = input.value.trim();
+            
+            if (taskText) {
+                tasks.push({
+                    id: Date.now(),
+                    text: taskText,
+                    createdAt: new Date().toISOString(),
+                    isPriority: isPriorityMode
+                });
+                saveTasks();
+                input.value = '';
+                isPriorityMode = false;
+                document.getElementById('priorityToggle').classList.remove('active');
+                updateTaskCounter();
+                showSuccessMessage();
+            }
+        }
+
+        function toggleTaskPriority(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.isPriority = !task.isPriority;
+                saveTasks();
+                renderTasksList();
+                renderPriorityTasksList();
+            }
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(task => task.id !== id);
+            saveTasks();
+            renderTasksList();
+            renderPriorityTasksList();
+            updateTaskCounter();
+        }
+
+        function updateTaskCounter() {
+            const count = tasks.length;
+            document.getElementById('taskCounter').textContent = count;
+        }
+
+        function showSuccessMessage() {
+            const msg = document.getElementById('successMessage');
+            msg.classList.add('show');
+            setTimeout(() => {
+                msg.classList.remove('show');
+            }, 3000);
+        }
+
+        // All Tasks Modal
+        function openAllTasksModal() {
+            loadTasks();
+            renderTasksList();
+            document.getElementById('allTasksModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAllTasksModal() {
+            document.getElementById('allTasksModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function renderTasksList() {
+            const container = document.getElementById('tasksContainer');
+            const emptyState = document.getElementById('emptyState');
+            const tasksList = document.getElementById('tasksList');
+            const modalCount = document.getElementById('modalTaskCount');
+
+            if (tasks.length === 0) {
+                emptyState.style.display = 'block';
+                tasksList.style.display = 'none';
+            } else {
+                emptyState.style.display = 'none';
+                tasksList.style.display = 'block';
+                modalCount.textContent = tasks.length;
+
+                container.innerHTML = tasks.map(task => `
+                    <div class="task-item ${task.isPriority ? 'priority' : ''}">
+                        <span class="task-text">${escapeHtml(task.text)}</span>
+                        <div class="task-actions">
+                            <button class="priority-btn ${task.isPriority ? 'active' : ''}" onclick="toggleTaskPriority(${task.id})" title="${task.isPriority ? 'Remove priority' : 'Mark as priority'}">
+                                <svg fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                </svg>
+                            </button>
+                            <button class="delete-btn" onclick="deleteTask(${task.id})">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Priority Tasks Modal
+        function openPriorityTasksModal() {
+            loadTasks();
+            renderPriorityTasksList();
+            document.getElementById('priorityTasksModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePriorityTasksModal() {
+            document.getElementById('priorityTasksModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function renderPriorityTasksList() {
+            const priorityTasks = tasks.filter(task => task.isPriority);
+            const container = document.getElementById('priorityTasksContainer');
+            const emptyState = document.getElementById('priorityEmptyState');
+            const tasksList = document.getElementById('priorityTasksList');
+            const modalCount = document.getElementById('priorityModalTaskCount');
+
+            if (priorityTasks.length === 0) {
+                emptyState.style.display = 'block';
+                tasksList.style.display = 'none';
+            } else {
+                emptyState.style.display = 'none';
+                tasksList.style.display = 'block';
+                modalCount.textContent = priorityTasks.length;
+
+                container.innerHTML = priorityTasks.map(task => `
+                    <div class="task-item priority">
+                        <span class="task-text">${escapeHtml(task.text)}</span>
+                        <div class="task-actions">
+                            <button class="priority-btn active" onclick="toggleTaskPriority(${task.id})" title="Remove priority">
+                                <svg fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                </svg>
+                            </button>
+                            <button class="delete-btn" onclick="deleteTask(${task.id})">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Random Task Modal
+        function openRandomTaskModal() {
+            loadTasks();
+            displayRandomTask();
+            document.getElementById('randomTaskModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeRandomTaskModal() {
+            document.getElementById('randomTaskModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function displayRandomTask() {
+            const emptyState = document.getElementById('randomEmptyState');
+            const display = document.getElementById('randomTaskDisplay');
+            const taskText = document.getElementById('focusTaskText');
+
+            if (tasks.length === 0) {
+                emptyState.style.display = 'block';
+                display.style.display = 'none';
+            } else {
+                emptyState.style.display = 'none';
+                display.style.display = 'block';
+                
+                // Fisher-Yates shuffle to get random task
+                const randomIndex = Math.floor(Math.random() * tasks.length);
+                const randomTask = tasks[randomIndex];
+                taskText.textContent = randomTask.text;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
