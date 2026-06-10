@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskFlow Manager</title>
+<style>
+body {
+  margin: 0; padding: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Auth Screen ── */
+.auth-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem 1rem; }
+.auth-card { background:white; border-radius:1rem; padding:2.5rem 2rem; max-width:420px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); text-align:center; }
+.auth-card h1 { font-size:1.75rem; font-weight:700; color:#1f2937; margin:0 0 0.5rem; }
+.auth-card p  { color:#6b7280; margin:0 0 2rem; }
+.btn-google { display:flex; align-items:center; justify-content:center; gap:0.75rem; width:100%; padding:0.875rem 1.5rem; border:2px solid #e5e7eb; border-radius:0.5rem; background:white; font-size:1rem; font-weight:600; color:#374151; cursor:pointer; transition:all 0.2s; }
+.btn-google:hover { border-color:#667eea; background:#f5f3ff; }
+.btn-google svg { width:1.25rem; height:1.25rem; flex-shrink:0; }
+
+/* ── Auth bar ── */
+.auth-bar { position:fixed; top:0; left:0; right:0; z-index:200; display:flex; align-items:center; justify-content:flex-end; padding:0.625rem 1.5rem; background:rgba(255,255,255,0.12); backdrop-filter:blur(8px); gap:0.75rem; }
+.auth-bar-avatar { width:2rem; height:2rem; border-radius:50%; border:2px solid white; object-fit:cover; }
+.auth-bar-name { color:white; font-size:0.875rem; font-weight:500; max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.btn-signout { background:rgba(255,255,255,0.2); border:none; color:white; font-size:0.8rem; font-weight:600; padding:0.3rem 0.75rem; border-radius:0.375rem; cursor:pointer; transition:background 0.2s; }
+.btn-signout:hover { background:rgba(255,255,255,0.35); }
+
+/* ── Header ── */
+.header-buttons { position:fixed; top:3.5rem; left:0; right:0; z-index:100; display:flex; justify-content:space-between; align-items:flex-start; padding:0 1.5rem; max-width:1200px; margin:0 auto; }
+.header-btn { background:white; border:none; padding:0.75rem 1.5rem; border-radius:0.5rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:0.5rem; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition:all 0.2s; color:#667eea; white-space:nowrap; }
+.header-btn:hover { transform:translateY(-2px); box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); }
+.header-btn svg { width:1.25rem; height:1.25rem; flex-shrink:0; }
+.header-left { display:flex; flex-wrap:wrap; gap:0.5rem; max-width:75%; }
+
+/* Lists dropdown in header */
+.lists-dropdown-wrap { position:relative; }
+.lists-dropdown-btn { background:white; border:none; padding:0.75rem 1rem; border-radius:0.5rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:0.4rem; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition:all 0.2s; color:#667eea; }
+.lists-dropdown-btn:hover { transform:translateY(-2px); }
+.lists-dropdown-menu { position:absolute; top:calc(100% + 0.5rem); left:0; background:white; border-radius:0.75rem; box-shadow:0 10px 25px rgba(0,0,0,0.15); min-width:200px; z-index:500; overflow:hidden; display:none; }
+.lists-dropdown-menu.open { display:block; }
+.list-menu-item { display:flex; align-items:center; justify-content:space-between; padding:0.75rem 1rem; cursor:pointer; transition:background 0.15s; font-size:0.9rem; color:#374151; gap:0.5rem; }
+.list-menu-item:hover { background:#f3f4f6; }
+.list-menu-item .list-name { flex:1; }
+.list-menu-item .list-actions { display:flex; gap:0.25rem; opacity:0; transition:opacity 0.15s; }
+.list-menu-item:hover .list-actions { opacity:1; }
+.list-icon-btn { background:none; border:none; cursor:pointer; padding:0.2rem; border-radius:0.25rem; color:#9ca3af; display:flex; align-items:center; }
+.list-icon-btn:hover { background:#e5e7eb; color:#374151; }
+.list-icon-btn svg { width:0.9rem; height:0.9rem; }
+.list-divider { height:1px; background:#e5e7eb; margin:0.25rem 0; }
+.list-add-row { display:flex; align-items:center; gap:0.5rem; padding:0.6rem 1rem; }
+.list-add-input { flex:1; border:1px solid #e5e7eb; border-radius:0.375rem; padding:0.4rem 0.6rem; font-size:0.875rem; outline:none; }
+.list-add-input:focus { border-color:#667eea; }
+.list-add-confirm { background:#667eea; color:white; border:none; border-radius:0.375rem; padding:0.4rem 0.6rem; cursor:pointer; font-size:0.8rem; font-weight:600; }
+
+/* ── Modal ── */
+.modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.75); display:none; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
+.modal-overlay.active { display:flex; }
+.modal-content { background:white; border-radius:1rem; padding:2rem; max-width:900px; width:100%; max-height:90vh; overflow-y:auto; position:relative; animation:slideIn 0.3s ease-out; }
+@keyframes slideIn { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+.modal-close { position:absolute; top:1rem; right:1rem; background:transparent; border:none; font-size:1.5rem; cursor:pointer; color:#6b7280; width:2rem; height:2rem; display:flex; align-items:center; justify-content:center; border-radius:0.5rem; transition:background-color 0.2s; }
+.modal-close:hover { background-color:#f3f4f6; }
+.modal-title { font-size:1.75rem; font-weight:700; color:#1f2937; margin-bottom:1.5rem; padding-right:2rem; }
+
+/* ── Task entry ── */
+.task-entry-container { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6rem 1rem 2rem; }
+.task-entry-card { background:white; border-radius:1rem; padding:2rem; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04); max-width:600px; width:100%; }
+h1 { font-size:2rem; font-weight:700; color:white; text-align:center; margin-bottom:0.5rem; }
+.subtitle { color:rgba(255,255,255,0.9); text-align:center; margin-bottom:2rem; }
+
+/* ── Inputs ── */
+.input-field { width:100%; padding:1rem; border:2px solid #e5e7eb; border-radius:0.5rem; font-size:1rem; transition:border-color 0.2s; box-sizing:border-box; }
+.input-field:focus { outline:none; border-color:#667eea; }
+.select-field { width:100%; padding:0.75rem 1rem; border:2px solid #e5e7eb; border-radius:0.5rem; font-size:0.95rem; background:white; color:#374151; cursor:pointer; transition:border-color 0.2s; box-sizing:border-box; }
+.select-field:focus { outline:none; border-color:#667eea; }
+
+.btn-group { display:flex; gap:0.5rem; }
+.btn-priority-toggle { background:white; border:2px solid #e5e7eb; padding:1rem; border-radius:0.5rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; color:#9ca3af; min-width:3.5rem; }
+.btn-priority-toggle:hover { border-color:#fbbf24; background:#fef3c7; }
+.btn-priority-toggle.active { background:#fbbf24; border-color:#f59e0b; color:white; }
+.btn-priority-toggle svg { width:1.5rem; height:1.5rem; }
+.btn-primary { flex:1; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; border:none; padding:1rem; border-radius:0.5rem; font-size:1rem; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem; transition:transform 0.2s,box-shadow 0.2s; }
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 10px 15px -3px rgba(102,126,234,0.3); }
+.btn-primary:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+.btn-secondary { background:#f3f4f6; color:#667eea; border:2px solid #667eea; padding:0.75rem 1.5rem; border-radius:0.5rem; font-weight:600; cursor:pointer; transition:all 0.2s; }
+.btn-secondary:hover { background:#667eea; color:white; }
+
+/* ── Task card ── */
+.task-item { background:#f9fafb; border:1px solid #e5e7eb; border-radius:0.625rem; padding:0.875rem 1rem; margin-bottom:0.75rem; position:relative; transition:all 0.2s; }
+.task-item:hover { background:#f3f4f6; border-color:#d1d5db; }
+.task-item.priority { background:#fef3c7; border-color:#fbbf24; }
+.task-item.priority:hover { background:#fde68a; }
+
+/* delete ✕ top-right */
+.task-delete-corner { position:absolute; top:0.4rem; right:0.4rem; background:none; border:none; cursor:pointer; color:#d1d5db; padding:0.2rem; border-radius:0.25rem; display:flex; align-items:center; transition:color 0.15s,background 0.15s; }
+.task-delete-corner:hover { color:#dc2626; background:#fee2e2; }
+.task-delete-corner svg { width:0.9rem; height:0.9rem; }
+
+.task-main { display:flex; align-items:flex-start; gap:0.5rem; padding-right:1.25rem; }
+.task-text-wrap { flex:1; }
+
+/* inline edit */
+.task-text { color:#1f2937; font-size:0.95rem; line-height:1.4; word-break:break-word; }
+.task-text.editing { display:none; }
+.task-edit-input { width:100%; border:1.5px solid #667eea; border-radius:0.375rem; padding:0.3rem 0.5rem; font-size:0.95rem; color:#1f2937; outline:none; box-sizing:border-box; }
+
+.task-list-tag { display:inline-block; font-size:0.7rem; font-weight:600; color:#7c3aed; background:#ede9fe; border-radius:0.25rem; padding:0.1rem 0.4rem; margin-top:0.25rem; }
+
+.task-footer { display:flex; align-items:center; gap:0.4rem; margin-top:0.5rem; }
+.task-action-btn { background:none; border:none; cursor:pointer; padding:0.3rem; border-radius:0.375rem; display:flex; align-items:center; color:#9ca3af; transition:all 0.15s; }
+.task-action-btn:hover { background:#e5e7eb; color:#374151; }
+.task-action-btn.active { color:#f59e0b; }
+.task-action-btn.has-notes { color:#667eea; }
+.task-action-btn svg { width:1rem; height:1rem; }
+
+/* ── Notes modal ── */
+.notes-modal-content { max-width:560px; }
+.notes-textarea { width:100%; min-height:180px; padding:0.875rem; border:2px solid #e5e7eb; border-radius:0.5rem; font-size:0.95rem; resize:vertical; box-sizing:border-box; font-family:inherit; line-height:1.5; }
+.notes-textarea:focus { outline:none; border-color:#667eea; }
+.notes-save-btn { margin-top:0.75rem; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; border:none; padding:0.75rem 1.75rem; border-radius:0.5rem; font-size:0.95rem; font-weight:600; cursor:pointer; transition:opacity 0.2s; }
+.notes-save-btn:hover { opacity:0.9; }
+
+/* ── Random focus ── */
+.random-focus-content { text-align:center; padding:3rem 1rem; }
+.focus-task-display { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:3rem 2rem; border-radius:1rem; margin:1.5rem 0 0.5rem; font-size:1.5rem; font-weight:600; line-height:1.4; min-height:150px; display:flex; align-items:center; justify-content:center; }
+.focus-list-tag { display:inline-block; font-size:0.8rem; font-weight:600; color:#7c3aed; background:#ede9fe; border-radius:0.375rem; padding:0.2rem 0.6rem; margin-bottom:1.5rem; }
+
+/* ── Misc ── */
+.empty-state { text-align:center; padding:3rem 1rem; color:#6b7280; }
+.empty-state svg { width:4rem; height:4rem; margin:0 auto 1rem; color:#d1d5db; }
+.task-count { background:#ede9fe; color:#7c3aed; padding:0.5rem 1rem; border-radius:0.5rem; font-weight:600; display:inline-block; margin-bottom:1rem; }
+.success-message { background:#d1fae5; color:#065f46; padding:0.75rem 1rem; border-radius:0.5rem; margin-top:1rem; display:none; align-items:center; gap:0.5rem; }
+.success-message.show { display:flex; }
+.spinner { width:2rem; height:2rem; border:3px solid rgba(102,126,234,0.2); border-top-color:#667eea; border-radius:50%; animation:spin 0.7s linear infinite; margin:0 auto; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.loading-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; }
+.loading-card { background:white; border-radius:1rem; padding:2.5rem 3rem; text-align:center; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); }
+.loading-card p { color:#6b7280; margin:1rem 0 0; }
+.sync-dot { width:0.5rem; height:0.5rem; border-radius:50%; background:#10b981; display:inline-block; margin-right:0.25rem; }
+.sync-dot.syncing { background:#f59e0b; animation:pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+@media(max-width:640px){
+
+  /* ── Auth bar ── */
+  .auth-bar { padding:0.5rem 0.875rem; gap:0.5rem; }
+  .auth-bar-name { display:none; }
+  .auth-bar-avatar { width:1.6rem; height:1.6rem; }
+  .btn-signout { font-size:0.72rem; padding:0.25rem 0.6rem; }
+
+  /* ── Header nav: single compact row ── */
+  .header-buttons {
+    top: 2.75rem;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(6px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .header-buttons::-webkit-scrollbar { display:none; }
+  .header-left { display:contents; /* children flow directly into the row */ }
+
+  /* icon-only buttons on mobile */
+  .header-btn {
+    padding: 0.5rem 0.6rem;
+    font-size: 0;          /* hide label text */
+    gap: 0;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+  .header-btn svg { width:1.1rem; height:1.1rem; margin:0; }
+
+  /* "Work on this!" keeps a short label */
+  #randomTaskBtn { font-size: 0.72rem; gap: 0.3rem; padding: 0.5rem 0.7rem; }
+  #randomTaskBtn svg { width:0.9rem; height:0.9rem; }
+
+  .lists-dropdown-btn {
+    padding: 0.5rem 0.6rem;
+    font-size: 0;
+    gap: 0;
+    flex-shrink: 0;
+  }
+  .lists-dropdown-btn svg { width:1.1rem; height:1.1rem; margin:0; }
+  /* show the down-chevron on mobile but hide middle icon */
+  .lists-dropdown-btn svg:first-child { display:none; }
+  .lists-dropdown-btn svg:last-child  { display:block; font-size:initial; }
+
+  /* dropdown anchors to right edge on mobile so it doesn't clip */
+  .lists-dropdown-menu { left:auto; right:0; min-width:180px; }
+
+  /* ── Main entry area ── */
+  .task-entry-container {
+    padding: 7rem 0.75rem 1.5rem;
+    justify-content: flex-start;
+  }
+  h1 { font-size:1.3rem; margin-bottom:0.25rem; }
+  .subtitle { font-size:0.85rem; margin-bottom:1rem; }
+
+  .task-entry-card { padding:1.1rem; border-radius:0.75rem; }
+  .task-entry-card label { font-size:0.85rem; margin-bottom:0.35rem; }
+  .input-field { padding:0.7rem 0.875rem; font-size:0.95rem; }
+  .select-field { padding:0.6rem 0.875rem; font-size:0.875rem; }
+
+  .btn-priority-toggle { padding:0.7rem; min-width:2.75rem; }
+  .btn-priority-toggle svg { width:1.25rem; height:1.25rem; }
+  .btn-primary { padding:0.7rem; font-size:0.9rem; }
+  .btn-primary svg { width:1rem; height:1rem; }
+
+  /* ── Task cards ── */
+  .task-item { padding:0.65rem 0.75rem; margin-bottom:0.5rem; border-radius:0.5rem; }
+  .task-text { font-size:0.875rem; }
+  .task-list-tag { font-size:0.65rem; padding:0.08rem 0.35rem; }
+  .task-footer { gap:0.25rem; margin-top:0.35rem; }
+  .task-action-btn { padding:0.25rem; }
+  .task-action-btn svg { width:0.9rem; height:0.9rem; }
+  .task-delete-corner svg { width:0.8rem; height:0.8rem; }
+
+  /* ── Modals — full-screen sheet on mobile ── */
+  .modal-overlay { padding:0; align-items:flex-end; }
+  .modal-content {
+    border-radius:1rem 1rem 0 0;
+    padding:1.25rem 1rem 2rem;
+    max-height:88vh;
+    width:100%;
+  }
+  .modal-title { font-size:1.2rem; margin-bottom:1rem; }
+  .modal-close { top:0.75rem; right:0.75rem; }
+
+  /* drag handle visual cue */
+  .modal-content::before {
+    content:'';
+    display:block;
+    width:2.5rem; height:0.25rem;
+    background:#d1d5db;
+    border-radius:2px;
+    margin:0 auto 1rem;
+  }
+
+  /* ── Notes modal ── */
+  .notes-textarea { min-height:130px; font-size:0.9rem; padding:0.7rem; }
+  .notes-save-btn { width:100%; padding:0.75rem; font-size:0.9rem; }
+
+  /* ── Random focus ── */
+  .random-focus-content { padding:1rem 0.5rem 1.5rem; }
+  .focus-task-display { font-size:1.1rem; padding:1.5rem 1rem; min-height:100px; border-radius:0.75rem; }
+  .focus-list-tag { font-size:0.75rem; margin-bottom:1rem; }
+  .btn-secondary { width:100%; }
+
+  /* ── Empty states ── */
+  .empty-state { padding:2rem 0.5rem; }
+  .empty-state svg { width:3rem; height:3rem; }
+}
+</style>
+</head>
+<body>
+
+<script>
+  const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyDqKErK5VRmcEG4kWpCRh2L7fVzKLd-uVc",
+    authDomain:        "todo-a7e97.firebaseapp.com",
+    projectId:         "todo-a7e97",
+    storageBucket:     "todo-a7e97.firebasestorage.app",
+    messagingSenderId: "789613682508",
+    appId:             "1:789613682508:web:898bd878be94b1cebab9e9"
+  };
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
+         query, orderBy, onSnapshot, setDoc, getDocs }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app  = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+let currentUser    = null;
+let tasks          = [];
+let lists          = [];          // [{id, name}]  id='default' is "All Tasks"
+let unsubTasks     = null;
+let unsubLists     = null;
+let isPriorityMode = false;
+let activeListFilter = null;      // null = show all in "All Tasks" modal
+
+// ─────────────────────────────────────────────
+// Screens
+// ─────────────────────────────────────────────
+const screens = {
+  loading: document.getElementById('loadingScreen'),
+  auth:    document.getElementById('authScreen'),
+  app:     document.getElementById('appScreen'),
+};
+function showScreen(n){ Object.values(screens).forEach(s=>s.style.display='none'); screens[n].style.display=''; }
+
+// ─────────────────────────────────────────────
+// Auth
+// ─────────────────────────────────────────────
+onAuthStateChanged(auth, user => {
+  if(user){
+    currentUser = user;
+    document.getElementById('userAvatar').src = user.photoURL||'';
+    document.getElementById('userAvatar').style.display = user.photoURL?'':'none';
+    document.getElementById('userName').textContent = user.displayName||user.email;
+    showScreen('app');
+    startListening();
+  } else {
+    currentUser = null;
+    if(unsubTasks){ unsubTasks(); unsubTasks=null; }
+    if(unsubLists){ unsubLists(); unsubLists=null; }
+    tasks=[]; lists=[];
+    showScreen('auth');
+  }
+});
+document.getElementById('googleSignInBtn').addEventListener('click', async()=>{
+  try{ await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch(e){ alert('Sign-in failed: '+e.message); }
+});
+document.getElementById('signOutBtn').addEventListener('click', ()=>signOut(auth));
+
+// ─────────────────────────────────────────────
+// Firestore refs
+// ─────────────────────────────────────────────
+const tasksRef = ()=> collection(db,'users',currentUser.uid,'tasks');
+const listsRef = ()=> collection(db,'users',currentUser.uid,'lists');
+const taskDoc  = id => doc(db,'users',currentUser.uid,'tasks',id);
+const listDoc  = id => doc(db,'users',currentUser.uid,'lists',id);
+
+function setSyncing(v){ document.getElementById('syncDot').classList.toggle('syncing',v); }
+
+// ─────────────────────────────────────────────
+// Real-time listeners
+// ─────────────────────────────────────────────
+function startListening(){
+  if(unsubTasks) unsubTasks();
+  if(unsubLists) unsubLists();
+
+  unsubLists = onSnapshot(query(listsRef(), orderBy('createdAt','asc')), snap=>{
+    lists = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderListsDropdown();
+    renderListSelect();
+    // re-render open modals that show list tags
+    refreshOpenModals();
+    setSyncing(false);
+  }, e=>{ console.error(e); setSyncing(false); });
+
+  unsubTasks = onSnapshot(query(tasksRef(), orderBy('createdAt','asc')), snap=>{
+    tasks = snap.docs.map(d=>({id:d.id,...d.data()}));
+    updateTaskCounter();
+    refreshOpenModals();
+    setSyncing(false);
+  }, e=>{ console.error(e); setSyncing(false); });
+}
+
+function refreshOpenModals(){
+  if(document.getElementById('allTasksModal').classList.contains('active'))      renderTasksList();
+  if(document.getElementById('priorityTasksModal').classList.contains('active')) renderPriorityTasksList();
+  if(document.getElementById('randomTaskModal').classList.contains('active'))    displayRandomTask();
+}
+
+// ─────────────────────────────────────────────
+// Lists helpers
+// ─────────────────────────────────────────────
+function listName(listId){
+  if(!listId || listId==='default') return 'All Tasks';
+  const l = lists.find(l=>l.id===listId);
+  return l ? l.name : 'All Tasks';
+}
+
+function renderListSelect(){
+  const sel = document.getElementById('listSelect');
+  const cur = sel.value || 'default';
+  sel.innerHTML = `<option value="default">All Tasks</option>` +
+    lists.map(l=>`<option value="${l.id}">${escapeHtml(l.name)}</option>`).join('');
+  sel.value = cur;
+}
+
+function renderListsDropdown(){
+  const menu = document.getElementById('listsDropdownMenu');
+  const listItems = lists.map(l=>`
+    <div class="list-menu-item" onclick="openListModal('${l.id}')">
+      <span class="list-name">${escapeHtml(l.name)}</span>
+      <span class="list-actions">
+        <button class="list-icon-btn" onclick="event.stopPropagation();startRenameList('${l.id}')" title="Rename">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16H8v-2a2 2 0 01.586-1.414z"/></svg>
+        </button>
+        <button class="list-icon-btn" onclick="event.stopPropagation();deleteList('${l.id}')" title="Delete list">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </span>
+    </div>`).join('');
+
+  menu.innerHTML = `
+    <div class="list-menu-item" onclick="openListModal('default')">
+      <span class="list-name" style="font-weight:600">All Tasks</span>
+    </div>
+    ${listItems}
+    <div class="list-divider"></div>
+    <div class="list-add-row">
+      <input class="list-add-input" id="newListInput" placeholder="New list name…" onkeydown="if(event.key==='Enter')confirmAddList()"/>
+      <button class="list-add-confirm" onclick="confirmAddList()">Add</button>
+    </div>`;
+}
+
+async function confirmAddList(){
+  const inp = document.getElementById('newListInput');
+  const name = inp ? inp.value.trim() : '';
+  if(!name) return;
+  setSyncing(true);
+  try{
+    await addDoc(listsRef(),{ name, createdAt:Date.now() });
+    inp.value='';
+  }catch(e){ alert('Could not create list: '+e.message); setSyncing(false); }
+}
+window.confirmAddList = confirmAddList;
+
+window.startRenameList = (id)=>{
+  const name = prompt('Rename list:', listName(id));
+  if(!name||!name.trim()) return;
+  setSyncing(true);
+  updateDoc(listDoc(id),{name:name.trim()}).catch(e=>{ alert(e.message); setSyncing(false); });
+};
+
+window.deleteList = async(id)=>{
+  if(!confirm(`Delete list "${listName(id)}" and move its tasks to All Tasks?`)) return;
+  setSyncing(true);
+  // move tasks to default
+  const affected = tasks.filter(t=>t.listId===id);
+  for(const t of affected) await updateDoc(taskDoc(t.id),{listId:'default'});
+  await deleteDoc(listDoc(id));
+};
+
+// toggle dropdown
+document.getElementById('listsDropdownBtn').addEventListener('click', e=>{
+  e.stopPropagation();
+  document.getElementById('listsDropdownMenu').classList.toggle('open');
+});
+document.addEventListener('click', ()=>{
+  document.getElementById('listsDropdownMenu').classList.remove('open');
+});
+document.getElementById('listsDropdownMenu').addEventListener('click', e=>e.stopPropagation());
+
+// ─────────────────────────────────────────────
+// Add task
+// ─────────────────────────────────────────────
+document.getElementById('taskForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const input   = document.getElementById('taskInput');
+  const listSel = document.getElementById('listSelect');
+  const text    = input.value.trim();
+  if(!text) return;
+  const addBtn = document.getElementById('addBtn');
+  addBtn.disabled=true; setSyncing(true);
+  try{
+    await addDoc(tasksRef(),{
+      text,
+      isPriority: isPriorityMode,
+      listId: listSel.value||'default',
+      notes: '',
+      createdAt: Date.now()
+    });
+    input.value='';
+    isPriorityMode=false;
+    document.getElementById('priorityToggle').classList.remove('active');
+    showSuccessMessage();
+  }catch(err){ alert('Could not save task: '+err.message); setSyncing(false); }
+  finally{ addBtn.disabled=false; }
+});
+
+// ─────────────────────────────────────────────
+// Task actions (global so onclick= works)
+// ─────────────────────────────────────────────
+window.toggleTaskPriority = async id=>{
+  const t = tasks.find(t=>t.id===id); if(!t) return;
+  setSyncing(true);
+  try{ await updateDoc(taskDoc(id),{isPriority:!t.isPriority}); }
+  catch(e){ console.error(e); setSyncing(false); }
+};
+
+window.deleteTask = async id=>{
+  setSyncing(true);
+  try{ await deleteDoc(taskDoc(id)); }
+  catch(e){ console.error(e); setSyncing(false); }
+};
+
+// ── Edit task text ──
+window.startEditTask = id=>{
+  const textEl  = document.getElementById('task-text-'+id);
+  const inputEl = document.getElementById('task-edit-'+id);
+  if(!textEl||!inputEl) return;
+  textEl.classList.add('editing');
+  inputEl.style.display='block';
+  inputEl.focus();
+  inputEl.select();
+};
+window.saveEditTask = async id=>{
+  const t = tasks.find(t=>t.id===id); if(!t) return;
+  const inputEl = document.getElementById('task-edit-'+id);
+  if(!inputEl) return;
+  const newText = inputEl.value.trim();
+  if(!newText){ inputEl.value=t.text; cancelEditTask(id); return; }
+  setSyncing(true);
+  try{ await updateDoc(taskDoc(id),{text:newText}); }
+  catch(e){ console.error(e); setSyncing(false); }
+  cancelEditTask(id);
+};
+window.cancelEditTask = id=>{
+  const textEl  = document.getElementById('task-text-'+id);
+  const inputEl = document.getElementById('task-edit-'+id);
+  if(textEl)  textEl.classList.remove('editing');
+  if(inputEl) inputEl.style.display='none';
+};
+
+// ── Notes ──
+window.openNotes = id=>{
+  const t = tasks.find(t=>t.id===id); if(!t) return;
+  document.getElementById('notesTaskId').value   = id;
+  document.getElementById('notesTaskTitle').textContent = t.text;
+  document.getElementById('notesTextarea').value = t.notes||'';
+  document.getElementById('notesModal').classList.add('active');
+  document.body.style.overflow='hidden';
+};
+document.getElementById('closeNotesModal').addEventListener('click', ()=>{
+  document.getElementById('notesModal').classList.remove('active');
+  document.body.style.overflow='';
+});
+document.getElementById('notesModal').addEventListener('click', e=>{
+  if(e.target===e.currentTarget){ document.getElementById('notesModal').classList.remove('active'); document.body.style.overflow=''; }
+});
+document.getElementById('notesSaveBtn').addEventListener('click', async()=>{
+  const id    = document.getElementById('notesTaskId').value;
+  const notes = document.getElementById('notesTextarea').value;
+  setSyncing(true);
+  try{
+    await updateDoc(taskDoc(id),{notes});
+    document.getElementById('notesModal').classList.remove('active');
+    document.body.style.overflow='';
+  }catch(e){ alert('Could not save notes: '+e.message); setSyncing(false); }
+});
+
+// ─────────────────────────────────────────────
+// Priority toggle button
+// ─────────────────────────────────────────────
+document.getElementById('priorityToggle').addEventListener('click', ()=>{
+  isPriorityMode=!isPriorityMode;
+  document.getElementById('priorityToggle').classList.toggle('active',isPriorityMode);
+});
+
+// ─────────────────────────────────────────────
+// Counter / success
+// ─────────────────────────────────────────────
+function updateTaskCounter(){ document.getElementById('taskCounter').textContent=tasks.length; }
+function showSuccessMessage(){
+  const m=document.getElementById('successMessage');
+  m.classList.add('show'); setTimeout(()=>m.classList.remove('show'),3000);
+}
+
+// ─────────────────────────────────────────────
+// All Tasks Modal  (shows all tasks, or filtered by list)
+// ─────────────────────────────────────────────
+document.getElementById('viewAllBtn').addEventListener('click', ()=>openListModal('default'));
+
+window.openListModal = (listId)=>{
+  activeListFilter = listId;
+  const title = listId==='default' ? 'All Tasks' : listName(listId);
+  document.getElementById('allTasksModalTitle').textContent = title;
+  renderTasksList();
+  document.getElementById('allTasksModal').classList.add('active');
+  document.body.style.overflow='hidden';
+  document.getElementById('listsDropdownMenu').classList.remove('open');
+};
+document.getElementById('closeAllTasksModal').addEventListener('click', closeAllTasksModal);
+document.getElementById('allTasksModal').addEventListener('click', e=>{ if(e.target===e.currentTarget) closeAllTasksModal(); });
+function closeAllTasksModal(){ document.getElementById('allTasksModal').classList.remove('active'); document.body.style.overflow=''; }
+
+function renderTasksList(){
+  const filtered   = activeListFilter==='default' ? tasks : tasks.filter(t=>(t.listId||'default')===activeListFilter);
+  const container  = document.getElementById('tasksContainer');
+  const emptyState = document.getElementById('emptyState');
+  const tasksList  = document.getElementById('tasksList');
+  if(filtered.length===0){
+    emptyState.style.display='block'; tasksList.style.display='none';
+  } else {
+    emptyState.style.display='none'; tasksList.style.display='block';
+    document.getElementById('modalTaskCount').textContent=filtered.length;
+    container.innerHTML=filtered.map(t=>taskItemHTML(t, activeListFilter==='default')).join('');
+  }
+}
+
+// ─────────────────────────────────────────────
+// Priority Modal
+// ─────────────────────────────────────────────
+document.getElementById('viewPriorityBtn').addEventListener('click', ()=>{
+  renderPriorityTasksList();
+  document.getElementById('priorityTasksModal').classList.add('active');
+  document.body.style.overflow='hidden';
+});
+document.getElementById('closePriorityTasksModal').addEventListener('click', closePriorityTasksModal);
+document.getElementById('priorityTasksModal').addEventListener('click', e=>{ if(e.target===e.currentTarget) closePriorityTasksModal(); });
+function closePriorityTasksModal(){ document.getElementById('priorityTasksModal').classList.remove('active'); document.body.style.overflow=''; }
+
+function renderPriorityTasksList(){
+  const priorityTasks = tasks.filter(t=>t.isPriority);
+  const container     = document.getElementById('priorityTasksContainer');
+  const emptyState    = document.getElementById('priorityEmptyState');
+  const tasksList     = document.getElementById('priorityTasksList');
+  if(priorityTasks.length===0){
+    emptyState.style.display='block'; tasksList.style.display='none';
+  } else {
+    emptyState.style.display='none'; tasksList.style.display='block';
+    document.getElementById('priorityModalTaskCount').textContent=priorityTasks.length;
+    // always show list tag in priority view
+    container.innerHTML=priorityTasks.map(t=>taskItemHTML(t,true)).join('');
+  }
+}
+
+// ─────────────────────────────────────────────
+// Random Task Modal
+// ─────────────────────────────────────────────
+let currentRandomTask = null;
+document.getElementById('randomTaskBtn').addEventListener('click', ()=>{
+  displayRandomTask();
+  document.getElementById('randomTaskModal').classList.add('active');
+  document.body.style.overflow='hidden';
+});
+document.getElementById('closeRandomTaskModal').addEventListener('click', closeRandomTaskModal);
+document.getElementById('randomTaskModal').addEventListener('click', e=>{ if(e.target===e.currentTarget) closeRandomTaskModal(); });
+document.getElementById('shuffleBtn').addEventListener('click', displayRandomTask);
+function closeRandomTaskModal(){ document.getElementById('randomTaskModal').classList.remove('active'); document.body.style.overflow=''; }
+
+function displayRandomTask(){
+  const emptyState = document.getElementById('randomEmptyState');
+  const display    = document.getElementById('randomTaskDisplay');
+  if(tasks.length===0){
+    emptyState.style.display='block'; display.style.display='none'; return;
+  }
+  emptyState.style.display='none'; display.style.display='block';
+  currentRandomTask = tasks[Math.floor(Math.random()*tasks.length)];
+  document.getElementById('focusTaskText').textContent = currentRandomTask.text;
+
+  // list tag
+  const tagEl = document.getElementById('focusListTag');
+  const lname = listName(currentRandomTask.listId||'default');
+  const isPri = currentRandomTask.isPriority;
+  let tagText = lname;
+  if(isPri) tagText += ' · ⭐ Priority';
+  tagEl.textContent = tagText;
+  tagEl.style.display='inline-block';
+}
+
+// ─────────────────────────────────────────────
+// Task item HTML
+// ─────────────────────────────────────────────
+function taskItemHTML(task, showListTag=false){
+  const lname = listName(task.listId||'default');
+  const listTag = showListTag
+    ? `<span class="task-list-tag">${escapeHtml(lname)}</span>`
+    : '';
+  const hasNotes = task.notes && task.notes.trim().length>0;
+  return `
+    <div class="task-item ${task.isPriority?'priority':''}">
+      <button class="task-delete-corner" onclick="deleteTask('${task.id}')" title="Delete task">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <div class="task-main">
+        <div class="task-text-wrap">
+          <div class="task-text" id="task-text-${task.id}">${escapeHtml(task.text)}</div>
+          <input class="task-edit-input" id="task-edit-${task.id}" value="${escapeHtml(task.text)}"
+            style="display:none"
+            onblur="saveEditTask('${task.id}')"
+            onkeydown="if(event.key==='Enter')saveEditTask('${task.id}');if(event.key==='Escape')cancelEditTask('${task.id}')"/>
+          ${listTag}
+        </div>
+      </div>
+      <div class="task-footer">
+        <!-- star -->
+        <button class="task-action-btn ${task.isPriority?'active':''}" onclick="toggleTaskPriority('${task.id}')" title="${task.isPriority?'Remove priority':'Mark as priority'}">
+          <svg fill="${task.isPriority?'currentColor':'none'}" stroke="currentColor" stroke-width="1.5" viewBox="0 0 20 20">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+          </svg>
+        </button>
+        <!-- edit -->
+        <button class="task-action-btn" onclick="startEditTask('${task.id}')" title="Edit task">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16H8v-2a2 2 0 01.586-1.414z"/></svg>
+        </button>
+        <!-- notes -->
+        <button class="task-action-btn ${hasNotes?'has-notes':''}" onclick="openNotes('${task.id}')" title="${hasNotes?'View/edit notes':'Add notes'}">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        </button>
+      </div>
+    </div>`;
+}
+
+function escapeHtml(text){
+  const d=document.createElement('div'); d.textContent=text; return d.innerHTML;
+}
+</script>
+
+<!-- ════════════ HTML ════════════ -->
+
+<!-- Loading -->
+<div id="loadingScreen">
+  <div class="loading-screen">
+    <div class="loading-card"><div class="spinner"></div><p>Loading…</p></div>
+  </div>
+</div>
+
+<!-- Sign-in -->
+<div id="authScreen" style="display:none">
+  <div class="auth-screen">
+    <div class="auth-card">
+      <h1>TaskFlow</h1>
+      <p>Sign in to sync your tasks across all your devices</p>
+      <button class="btn-google" id="googleSignInBtn">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Continue with Google
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="appScreen" style="display:none">
+
+  <!-- Auth bar -->
+  <div class="auth-bar">
+    <span class="sync-dot" id="syncDot"></span>
+    <img class="auth-bar-avatar" id="userAvatar" src="" alt="">
+    <span class="auth-bar-name" id="userName"></span>
+    <button class="btn-signout" id="signOutBtn">Sign out</button>
+  </div>
+
+  <!-- Nav -->
+  <div class="header-buttons">
+    <div class="header-left">
+      <button class="header-btn" id="viewAllBtn">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        All Tasks
+      </button>
+      <button class="header-btn" id="viewPriorityBtn">
+        <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+        Priority
+      </button>
+      <!-- Lists dropdown -->
+      <div class="lists-dropdown-wrap">
+        <button class="lists-dropdown-btn" id="listsDropdownBtn">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1.1rem;height:1.1rem"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10"/></svg>
+          Lists
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:0.85rem;height:0.85rem"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div class="lists-dropdown-menu" id="listsDropdownMenu"></div>
+      </div>
+    </div>
+    <button class="header-btn" id="randomTaskBtn">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      Work on this!
+    </button>
+  </div>
+
+  <!-- Task entry -->
+  <div class="task-entry-container">
+    <h1>Project Manager</h1>
+    <p class="subtitle">Capture your tasks and stay focused</p>
+    <div class="task-entry-card">
+      <form id="taskForm">
+        <div style="margin-bottom:0.75rem">
+          <label for="taskInput" style="display:block;margin-bottom:0.5rem;color:#374151;font-weight:600">Add a Task or Project</label>
+          <input type="text" id="taskInput" class="input-field" placeholder="e.g., Complete quarterly report…" required/>
+        </div>
+        <div style="margin-bottom:0.75rem">
+          <label for="listSelect" style="display:block;margin-bottom:0.4rem;color:#374151;font-weight:600;font-size:0.9rem">Add to list</label>
+          <select id="listSelect" class="select-field">
+            <option value="default">All Tasks</option>
+          </select>
+        </div>
+        <div class="btn-group">
+          <button type="button" class="btn-priority-toggle" id="priorityToggle" title="Mark as priority">
+            <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          </button>
+          <button type="submit" class="btn-primary" id="addBtn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1.25rem;height:1.25rem"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Add Task
+          </button>
+        </div>
+      </form>
+      <div class="success-message" id="successMessage">
+        <svg fill="currentColor" viewBox="0 0 20 20" style="width:1.25rem;height:1.25rem"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        Task saved!
+      </div>
+      <div style="margin-top:1.5rem;text-align:center;color:#6b7280"><span id="taskCounter">0</span> tasks synced</div>
+    </div>
+  </div>
+
+  <!-- All Tasks / List Modal -->
+  <div class="modal-overlay" id="allTasksModal">
+    <div class="modal-content">
+      <button class="modal-close" id="closeAllTasksModal">&times;</button>
+      <h2 class="modal-title" id="allTasksModalTitle">All Tasks</h2>
+      <div>
+        <div class="empty-state" id="emptyState">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <h3 style="font-size:1.25rem;font-weight:600;color:#374151;margin-bottom:0.5rem">No Tasks Yet</h3>
+          <p>Add your first task above</p>
+        </div>
+        <div id="tasksList" style="display:none">
+          <div style="margin-bottom:1rem"><span class="task-count"><span id="modalTaskCount">0</span> Tasks</span></div>
+          <div id="tasksContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Priority Modal -->
+  <div class="modal-overlay" id="priorityTasksModal">
+    <div class="modal-content">
+      <button class="modal-close" id="closePriorityTasksModal">&times;</button>
+      <h2 class="modal-title" style="display:flex;align-items:center;gap:0.5rem">
+        <svg fill="currentColor" viewBox="0 0 20 20" style="width:1.75rem;height:1.75rem;color:#f59e0b"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+        Priority Tasks
+      </h2>
+      <div>
+        <div class="empty-state" id="priorityEmptyState">
+          <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <h3 style="font-size:1.25rem;font-weight:600;color:#374151;margin-bottom:0.5rem">No Priority Tasks</h3>
+          <p>Mark tasks as priority using the star icon</p>
+        </div>
+        <div id="priorityTasksList" style="display:none">
+          <div style="margin-bottom:1rem"><span class="task-count" style="background:#fef3c7;color:#d97706"><span id="priorityModalTaskCount">0</span> Priority Tasks</span></div>
+          <div id="priorityTasksContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes Modal -->
+  <div class="modal-overlay" id="notesModal">
+    <div class="modal-content notes-modal-content">
+      <button class="modal-close" id="closeNotesModal">&times;</button>
+      <h2 class="modal-title" style="font-size:1.25rem">Notes</h2>
+      <p id="notesTaskTitle" style="color:#374151;font-weight:600;margin:0 0 1rem;font-size:1rem;line-height:1.4"></p>
+      <input type="hidden" id="notesTaskId"/>
+      <textarea class="notes-textarea" id="notesTextarea" placeholder="Add notes, links, context…"></textarea>
+      <button class="notes-save-btn" id="notesSaveBtn">Save Notes</button>
+    </div>
+  </div>
+
+  <!-- Random Task Modal -->
+  <div class="modal-overlay" id="randomTaskModal">
+    <div class="modal-content">
+      <button class="modal-close" id="closeRandomTaskModal">&times;</button>
+      <div class="random-focus-content">
+        <h2 class="modal-title" style="text-align:center">Your Focus Task</h2>
+        <p style="color:#6b7280;text-align:center;margin-bottom:1rem">Let randomness guide your productivity</p>
+        <div id="randomTaskContent">
+          <div class="empty-state" id="randomEmptyState">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            <h3 style="font-size:1.25rem;font-weight:600;color:#374151;margin-bottom:0.5rem">No Tasks Available</h3>
+            <p>Add some tasks first</p>
+          </div>
+          <div id="randomTaskDisplay" style="display:none">
+            <div class="focus-task-display" id="focusTaskText"></div>
+            <span class="focus-list-tag" id="focusListTag" style="display:none"></span>
+            <button class="btn-secondary" id="shuffleBtn" style="display:block;margin:0 auto">Get Another Task</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /appScreen -->
+</body>
+</html>
